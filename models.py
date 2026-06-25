@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from database import Base
 
+
 class User(Base):
     __tablename__ = "users"
 
@@ -17,3 +18,6 @@ class Transaction(Base):
     description = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
     category = Column(String, default="Uncategorized")
+
+  
+
