@@ -8,9 +8,17 @@ from database import Base, engine, get_db
 import csv
 import io
 import pickle
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+def homepage():
+    return FileResponse("static/index.html")
 
 with open("model.pkl", "rb") as f:
     model = pickle.load(f)
