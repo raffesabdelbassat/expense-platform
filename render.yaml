@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: expense-platform
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
