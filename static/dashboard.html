@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ExpenseIQ — Dashboard</title>
+   <script src="/static/chart.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        nav {
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        nav h1 { font-size: 20px; color: #6366f1; }
+        nav button {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .container { max-width: 1100px; margin: 0 auto; padding: 32px 16px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .card h2 { font-size: 16px; color: rgba(255,255,255,0.6); margin-bottom: 16px; }
+        .upload-area {
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+        .upload-area:hover { border-color: #6366f1; }
+        input[type="file"] { display: none; }
+        .upload-btn {
+            background: #6366f1;
+            border: none;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+        }
+        .upload-btn:hover { background: #4f46e5; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { text-align: left; padding: 10px 12px; color: rgba(255,255,255,0.4); border-bottom: 1px solid rgba(255,255,255,0.1); }
+        td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .Food { background: #065f46; color: #6ee7b7; }
+        .Transport { background: #1e3a5f; color: #93c5fd; }
+        .Entertainment { background: #4c1d95; color: #c4b5fd; }
+        .Shopping { background: #7c2d12; color: #fdba74; }
+        .Bills { background: #374151; color: #d1d5db; }
+        .Health { background: #831843; color: #fbcfe8; }
+        .Education { background: #1e3a5f; color: #a5f3fc; }
+        .Travel { background: #065f46; color: #a7f3d0; }
+        #uploadStatus { margin-top: 8px; font-size: 13px; color: #6ee7b7; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h1>💸 ExpenseIQ</h1>
+    <button onclick="logout()">Logout</button>
+</nav>
+
+<div class="container">
+    <div class="grid">
+        <div class="card">
+            <h2>SPENDING BY CATEGORY</h2>
+            <canvas id="categoryChart"></canvas>
+        </div>
+        <div class="card">
+            <h2>UPLOAD TRANSACTIONS</h2>
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <p>📂 Click to select your bank CSV file</p>
+                <p style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:8px">Columns needed: date, description, amount</p>
+            </div>
+            <input type="file" id="fileInput" accept=".csv" onchange="uploadFile()">
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose CSV File</button>
+            <p id="uploadStatus"></p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>TRANSACTIONS</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Category</th>
+                </tr>
+            </thead>
+            <tbody id="transactionList"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem("token");
+    if (!token) window.location.href = "/";
+
+    let chart = null;
+
+    async function loadTransactions() {
+        const response = await fetch("/transactions", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (response.status === 401) {
+            window.location.href = "/";
+            return;
+        }
+
+        const transactions = await response.json();
+        const tbody = document.getElementById("transactionList");
+        tbody.innerHTML = "";
+
+        const categoryTotals = {};
+
+        transactions.forEach(t => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${t.date}</td>
+                <td>${t.description}</td>
+                <td>$${parseFloat(t.amount).toFixed(2)}</td>
+                <td><span class="badge ${t.category}">${t.category}</span></td>
+            `;
+            tbody.appendChild(row);
+            categoryTotals[t.category] = (categoryTotals[t.category] || 0) + parseFloat(t.amount);
+        });
+
+        updateChart(categoryTotals);
+    }
+
+    function updateChart(categoryTotals) {
+        const labels = Object.keys(categoryTotals);
+        const values = Object.values(categoryTotals);
+        const colors = ["#6ee7b7","#93c5fd","#c4b5fd","#fdba74","#d1d5db","#fbcfe8","#a5f3fc","#a7f3d0"];
+
+        if (chart) chart.destroy();
+
+        chart = new Chart(document.getElementById("categoryChart"), {
+            type: "doughnut",
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: { labels: { color: "#e2e8f0" } }
+                }
+            }
+        });
+    }
+
+    async function uploadFile() {
+        const file = document.getElementById("fileInput").files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/upload", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}` },
+            body: formData
+        });
+
+        const data = await response.json();
+        document.getElementById("uploadStatus").textContent = data.message;
+        loadTransactions();
+    }
+
+    function logout() {
+        localStorage.removeItem("token");
+        window.location.href = "/";
+    }
+
+    loadTransactions();
+</script>
+</body>
+</html>
