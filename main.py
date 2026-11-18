@@ -2,6 +2,7 @@ import csv
 import io
 import math
 import pickle
+import unicodedata
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
@@ -96,16 +97,32 @@ async def upload_transactions(
         dialect = csv.Sniffer().sniff(decoded[:4096], delimiters=",;\t|")
     except csv.Error:
         dialect = csv.excel
-    reader = csv.DictReader(io.StringIO(decoded), dialect=dialect)
-    if not reader.fieldnames:
+    def normalize_header(header):
+        header = (header or "").strip().lower().replace("_", " ")
+        header = header.replace("ł", "l")
+        return "".join(char for char in unicodedata.normalize("NFKD", header) if not unicodedata.combining(char))
+
+    description_columns = (
+        "description", "merchant", "merchant name", "name", "details", "transaction details",
+        "transaction", "memo", "narrative", "narration", "payee", "particulars",
+        "szczegoly transakcji", "nazwa nadawcy", "nazwa odbiorcy",
+    )
+    amount_columns = ("amount", "transaction amount", "value", "sum", "kwota operacji", "kwota w walucie rachunku")
+    date_columns = ("date", "transaction date", "posting date", "booking date", "time", "data transakcji", "data ksiegowania")
+
+    # Some bank exports put report criteria above the actual CSV header.
+    parsed_rows = list(csv.reader(io.StringIO(decoded), dialect=dialect))
+    header_row_index = next((index for index, row in enumerate(parsed_rows[:20])
+                             if any(normalize_header(cell) in description_columns for cell in row)
+                             and any(normalize_header(cell) in amount_columns for cell in row)), None)
+    if header_row_index is None:
         raise HTTPException(status_code=400, detail="CSV must include a header row")
-    normalized_headers = [header.strip().lower().replace("_", " ") if header else "" for header in reader.fieldnames]
+    csv_lines = decoded.splitlines(keepends=True)
+    reader = csv.DictReader(io.StringIO("".join(csv_lines[header_row_index:])), dialect=dialect)
+    normalized_headers = [normalize_header(header) for header in reader.fieldnames]
     reader.fieldnames = normalized_headers
-    description_columns = ("description", "merchant", "merchant name", "name", "details", "transaction details", "transaction", "memo", "narrative", "narration", "payee", "particulars")
-    amount_columns = ("amount", "transaction amount", "value", "sum")
-    date_columns = ("date", "transaction date", "posting date", "booking date", "time")
     if not any(name in normalized_headers for name in description_columns):
-        raise HTTPException(status_code=400, detail="CSV needs a description, merchant, transaction, memo, or payee column")
+        raise HTTPException(status_code=400, detail="CSV needs a description, merchant, transaction details, memo, or payee column")
     if not any(name in normalized_headers for name in amount_columns):
         raise HTTPException(status_code=400, detail="CSV needs an amount, transaction amount, value, or sum column")
 
@@ -114,7 +131,7 @@ async def upload_transactions(
         for row_number, row in enumerate(reader, start=2):
             if row_number > MAX_TRANSACTIONS_PER_UPLOAD + 1:
                 raise HTTPException(status_code=413, detail="CSV may contain at most 5,000 transactions")
-            row = {key.strip().lower().replace("_", " "): (value.strip() if value else "") for key, value in row.items() if key}
+            row = {normalize_header(key): (value.strip() if value else "") for key, value in row.items() if key}
             description = next((row[name] for name in description_columns if row.get(name)), "")
             amount_text = next((row[name] for name in amount_columns if row.get(name)), "")
             date = next((row[name] for name in date_columns if row.get(name)), "Unknown")
