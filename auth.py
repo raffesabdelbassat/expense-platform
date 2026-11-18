@@ -2,8 +2,9 @@ from datetime import timedelta, datetime
 from jose import jwt, JWTError
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
+import os
 
-secret_key = "Basset31142716302025"
+secret_key = os.getenv("JWT_SECRET_KEY", "local-development-only-change-me")
 ALGORITHM = "HS256"
 access_token_expire_minutes = 60
 

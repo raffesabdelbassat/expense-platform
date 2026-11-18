@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>ExpenseIQ — Dashboard</title>
-   <script src="/static/chart.js"></script>
+   <script src="/static/chart.umd.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -99,7 +99,7 @@
                 <p>📂 Click to select your bank CSV file</p>
                 <p style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:8px">Columns needed: date, description, amount</p>
             </div>
-            <input type="file" id="fileInput" accept=".csv" onchange="uploadFile()">
+            <input type="file" id="fileInput" accept=".csv">
             <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose CSV File</button>
             <p id="uploadStatus"></p>
         </div>
@@ -137,6 +137,10 @@
             return;
         }
 
+        if (!response.ok) {
+            document.getElementById("uploadStatus").textContent = "Could not load transactions.";
+            return;
+        }
         const transactions = await response.json();
         const tbody = document.getElementById("transactionList");
         tbody.innerHTML = "";
@@ -145,12 +149,20 @@
 
         transactions.forEach(t => {
             const row = document.createElement("tr");
-            row.innerHTML = `
-                <td>${t.date}</td>
-                <td>${t.description}</td>
-                <td>$${parseFloat(t.amount).toFixed(2)}</td>
-                <td><span class="badge ${t.category}">${t.category}</span></td>
-            `;
+            const dateCell = document.createElement("td");
+            dateCell.textContent = t.date;
+            const descriptionCell = document.createElement("td");
+            descriptionCell.textContent = t.description;
+            const amountCell = document.createElement("td");
+            amountCell.textContent = `$${Number(t.amount).toFixed(2)}`;
+            const categoryCell = document.createElement("td");
+            const badge = document.createElement("span");
+            badge.classList.add("badge");
+            const safeCategory = String(t.category || "Uncategorized");
+            if (/^[a-z]+$/i.test(safeCategory)) badge.classList.add(safeCategory);
+            badge.textContent = safeCategory;
+            categoryCell.appendChild(badge);
+            row.append(dateCell, descriptionCell, amountCell, categoryCell);
             tbody.appendChild(row);
             categoryTotals[t.category] = (categoryTotals[t.category] || 0) + parseFloat(t.amount);
         });
@@ -184,12 +196,19 @@
     }
 
     async function uploadFile() {
-        const file = document.getElementById("fileInput").files[0];
-        if (!file) return;
+    const fileInput = document.getElementById("fileInput");
+    const file = fileInput.files[0];
 
-        const formData = new FormData();
-        formData.append("file", file);
+    if (!file) {
+        return;
+    }
 
+    document.getElementById("uploadStatus").textContent = "Uploading...";
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
         const response = await fetch("/upload", {
             method: "POST",
             headers: { "Authorization": `Bearer ${token}` },
@@ -197,9 +216,17 @@
         });
 
         const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Upload failed");
         document.getElementById("uploadStatus").textContent = data.message;
-        loadTransactions();
+        await loadTransactions();
+    } catch (err) {
+        document.getElementById("uploadStatus").textContent = "Upload failed: " + err.message;
+    } finally {
+        fileInput.value = "";
     }
+}
+
+    document.getElementById("fileInput").addEventListener("change", uploadFile);
 
     function logout() {
         localStorage.removeItem("token");
