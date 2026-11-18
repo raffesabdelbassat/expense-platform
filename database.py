@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 
@@ -16,6 +16,14 @@ if DATABASE_URL.startswith("sqlite"):
 engine = create_engine(DATABASE_URL, **engine_options)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+
+def ensure_schema_compatibility():
+    """Add backwards-compatible columns that create_all does not migrate."""
+    transaction_columns = {column["name"] for column in inspect(engine).get_columns("transactions")}
+    if "currency" not in transaction_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE transactions ADD COLUMN currency VARCHAR(3)"))
 
 
 def get_db():

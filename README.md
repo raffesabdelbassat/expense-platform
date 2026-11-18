@@ -39,3 +39,17 @@ ExpenseIQ is a FastAPI application for importing bank CSV transactions, assignin
 ## Deployment
 
 Configure `DATABASE_URL` and a unique `JWT_SECRET_KEY` in the hosting provider's environment settings. Do not commit secrets or production database credentials.
+
+## Connect a bank (Salt Edge)
+
+Bank linking is server-side and disabled until Salt Edge Partner API credentials are configured. Salt Edge's Partners API currently requires an invitation; partner accounts begin with fake/sandbox providers, and real-bank access requires Salt Edge approval. See the [Salt Edge Partners API quick start](https://docs.saltedge.com/partners/v1/).
+
+Set these environment variables on the server (never in browser JavaScript or a committed file):
+
+- `SALTEDGE_APP_ID`
+- `SALTEDGE_SECRET`
+- `APP_BASE_URL` (the public HTTPS URL in production, such as `https://your-app.example.com`)
+
+For local development, set them in the PowerShell session before launching Uvicorn. The dashboard sends the signed-in user's email to Salt Edge to create a lead, then sends the user to Salt Edge and their bank to approve account and transaction access. The app never asks for or stores bank login credentials.
+
+Before enabling real banks, complete Salt Edge's partner approval and configure its required terms, privacy policy, callback, consent-revocation, and live-mode requirements. Until then, only Salt Edge fake/sandbox providers may be available.

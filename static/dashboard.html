@@ -233,7 +233,9 @@
                 <div class="table-footer"><span id="resultsLabel">Loading transactions…</span><div class="pagination"><button class="page-btn" id="prevPage" aria-label="Previous page" disabled>‹</button><button class="page-btn" id="nextPage" aria-label="Next page" disabled>›</button></div></div>
             </section>
 
-            <section class="panel" id="import" style="margin-top:17px"><div class="panel-head"><div><h2 class="panel-title">Import transactions</h2><p class="panel-subtitle">Upload a bank statement CSV. Your file stays in this app.</p></div></div><div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-label="Choose a CSV file or drop one here"><span class="drop-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v4h16v-4"/></svg></span><span class="drop-title" id="fileLabel">Drop a CSV file here or browse</span><span class="drop-help">CSV format · up to 5 MB · comma or semicolon separated</span><input type="file" id="fileInput" accept=".csv,text/csv" hidden></div><button class="button-primary upload-action" id="uploadButton" type="button">Upload transactions</button><p class="upload-status" id="uploadStatus" role="status" aria-live="polite"></p></section>
+            <section class="panel" id="bankLink" style="margin-top:17px"><div class="panel-head"><div><h2 class="panel-title">Connect your bank</h2><p class="panel-subtitle">Securely import transactions through Salt Edge.</p></div><button class="button-primary" id="connectBankButton" type="button">Connect a bank</button></div><p class="panel-subtitle" style="max-width:680px;line-height:1.6;margin-top:12px">You’ll continue to Salt Edge and your bank to approve access. Your bank credentials stay with your bank. Your app email is sent to Salt Edge to start the connection.</p><div id="bankConnectionList" style="display:grid;gap:8px;margin-top:12px"></div><p class="upload-status" id="bankStatus" role="status" aria-live="polite"></p><button class="page-btn" id="syncBanksButton" type="button" style="display:none;width:auto;padding:0 10px;margin-top:8px;font-size:10px">Sync connected banks</button></section>
+
+            <section class="panel" id="import" style="margin-top:17px"><div class="panel-head"><div><h2 class="panel-title">Import transactions</h2><p class="panel-subtitle">Or upload a bank statement CSV.</p></div></div><div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-label="Choose a CSV file or drop one here"><span class="drop-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v4h16v-4"/></svg></span><span class="drop-title" id="fileLabel">Drop a CSV file here or browse</span><span class="drop-help">CSV format · up to 5 MB · comma or semicolon separated</span><input type="file" id="fileInput" accept=".csv,text/csv" hidden></div><button class="button-primary upload-action" id="uploadButton" type="button">Upload transactions</button><p class="upload-status" id="uploadStatus" role="status" aria-live="polite"></p></section>
         </div>
     </main>
 </div>
@@ -253,6 +255,13 @@
 
     const money = value => new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0);
     const amountText = value => `${Number(value) < 0 ? "−" : Number(value) > 0 ? "+" : ""}${money(Math.abs(Number(value) || 0))}`;
+    const transactionAmountText = transaction => {
+        const currency = String(transaction.currency || "").toUpperCase();
+        if (/^[A-Z]{3}$/.test(currency)) {
+            return new Intl.NumberFormat(undefined, { style: "currency", currency, currencyDisplay: "code" }).format(Number(transaction.amount) || 0);
+        }
+        return amountText(transaction.amount);
+    };
     const normalizedCategory = value => String(value || "Uncategorized");
     const dateValue = value => {
         const text = String(value || "").trim();
@@ -282,18 +291,35 @@
         const outflows = transactions.filter(t => Number(t.amount) < 0).reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
         const inflows = transactions.filter(t => Number(t.amount) > 0).reduce((sum, t) => sum + Number(t.amount), 0);
         const outgoingCount = transactions.filter(t => Number(t.amount) < 0).length;
-        document.getElementById("totalOutflow").textContent = money(outflows);
-        document.getElementById("totalInflow").textContent = money(inflows);
+        const currencies = [...new Set(transactions.map(t => String(t.currency || "").toUpperCase()).filter(Boolean))];
+        const mixed = currencies.length > 1;
+        const formatTotal = value => currencies.length === 1
+            ? new Intl.NumberFormat(undefined, { style: "currency", currency: currencies[0], currencyDisplay: "code" }).format(value)
+            : mixed ? "Mixed" : money(value);
+        document.getElementById("totalOutflow").textContent = formatTotal(outflows);
+        document.getElementById("totalInflow").textContent = formatTotal(inflows);
         document.getElementById("transactionCount").textContent = new Intl.NumberFormat().format(transactions.length);
         document.getElementById("transactionCountFoot").textContent = transactions.length === 1 ? "Transaction in this period" : "Transactions in this period";
-        document.getElementById("averageOutflow").textContent = money(outgoingCount ? outflows / outgoingCount : 0);
-        document.getElementById("chartTotal").textContent = money(outflows);
+        document.getElementById("averageOutflow").textContent = formatTotal(outgoingCount ? outflows / outgoingCount : 0);
+        document.getElementById("chartTotal").textContent = mixed ? String(outgoingCount) : formatTotal(outflows);
+        document.querySelector(".chart-center span").textContent = mixed ? "Expense count" : "Total outflow";
+        if (mixed) {
+            document.querySelector(".stat-card.featured .stat-foot").textContent = "Multiple currencies · view rows below";
+            document.querySelector(".stat-card:nth-child(2) .stat-foot").textContent = "Multiple currencies · view rows below";
+            document.querySelector(".stat-card:nth-child(4) .stat-foot").textContent = "Multiple currencies · view rows below";
+        } else {
+            document.querySelector(".stat-card.featured .stat-foot").textContent = "Based on imported debits";
+            document.querySelector(".stat-card:nth-child(2) .stat-foot").textContent = "Incoming transactions";
+            document.querySelector(".stat-card:nth-child(4) .stat-foot").textContent = "Per outgoing transaction";
+        }
     }
 
     function renderCharts(transactions) {
+        const currencyCodes = [...new Set(transactions.map(t => String(t.currency || "").toUpperCase()).filter(Boolean))];
+        const mixedCurrencies = currencyCodes.length > 1;
         const expenses = transactions.filter(t => Number(t.amount) < 0);
         const categoryTotals = {};
-        expenses.forEach(t => { const name = normalizedCategory(t.category); categoryTotals[name] = (categoryTotals[name] || 0) + Math.abs(Number(t.amount)); });
+        expenses.forEach(t => { const name = normalizedCategory(t.category); categoryTotals[name] = (categoryTotals[name] || 0) + (mixedCurrencies ? 1 : Math.abs(Number(t.amount))); });
         const categoryEntries = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
         const labels = categoryEntries.map(([name]) => name);
         const values = categoryEntries.map(([, value]) => value);
@@ -303,7 +329,7 @@
         categoryChart = new Chart(document.getElementById("categoryChart"), {
             type: "doughnut",
             data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: "#fff", hoverOffset: 5 }] },
-            options: { responsive: true, maintainAspectRatio: false, cutout: "77%", plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => ` ${context.label}: ${money(context.raw)}` } } } }
+            options: { responsive: true, maintainAspectRatio: false, cutout: "77%", plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => mixedCurrencies ? ` ${context.label}: ${context.raw} transactions` : ` ${context.label}: ${money(context.raw)}` } } } }
         });
         const legend = document.getElementById("categoryLegend");
         legend.replaceChildren();
@@ -311,7 +337,7 @@
             const item = document.createElement("div"); item.className = "legend-item";
             const dot = document.createElement("span"); dot.className = "legend-dot"; dot.style.backgroundColor = colors[index];
             const label = document.createElement("span"); label.className = "legend-name"; label.textContent = name;
-            const amount = document.createElement("span"); amount.className = "legend-value"; amount.textContent = money(value);
+            const amount = document.createElement("span"); amount.className = "legend-value"; amount.textContent = mixedCurrencies ? `${value} tx` : money(value);
             item.append(dot, label, amount); legend.append(item);
         });
         if (!categoryEntries.length) legend.innerHTML = '<span class="panel-subtitle">Import expenses to see your category breakdown.</span>';
@@ -325,14 +351,16 @@
         transactions.forEach(t => {
             const d = dateValue(t.date); if (!d) return;
             const index = monthKeys.indexOf(`${d.getFullYear()}-${d.getMonth()}`); if (index < 0) return;
-            const amount = Number(t.amount); if (amount < 0) expense[index] += Math.abs(amount); else if (amount > 0) income[index] += amount;
+            const amount = Number(t.amount); if (amount < 0) expense[index] += mixedCurrencies ? 1 : Math.abs(amount); else if (amount > 0) income[index] += mixedCurrencies ? 1 : amount;
         });
         if (flowChart) flowChart.destroy();
         flowChart = new Chart(document.getElementById("flowChart"), {
             type: "bar",
-            data: { labels: monthLabels, datasets: [{ label: "Money in", data: income, backgroundColor: "#9ed7b5", borderRadius: 5, maxBarThickness: 17 }, { label: "Money out", data: expense, backgroundColor: "#178263", borderRadius: 5, maxBarThickness: 17 }] },
-            options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false }, plugins: { legend: { position: "bottom", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 7, boxHeight: 7, color: "#77867f", padding: 18, font: { size: 10 } } }, tooltip: { callbacks: { label: context => ` ${context.dataset.label}: ${money(context.raw)}` } } }, scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: "#91a099", font: { size: 10 } } }, y: { beginAtZero: true, grid: { color: "#edf1ef" }, border: { display: false }, ticks: { color: "#a0aaa5", font: { size: 9 }, maxTicksLimit: 5, callback: value => money(value) } } } }
+            data: { labels: monthLabels, datasets: [{ label: mixedCurrencies ? "Income count" : "Money in", data: income, backgroundColor: "#9ed7b5", borderRadius: 5, maxBarThickness: 17 }, { label: mixedCurrencies ? "Expense count" : "Money out", data: expense, backgroundColor: "#178263", borderRadius: 5, maxBarThickness: 17 }] },
+            options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false }, plugins: { legend: { position: "bottom", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 7, boxHeight: 7, color: "#77867f", padding: 18, font: { size: 10 } } }, tooltip: { callbacks: { label: context => mixedCurrencies ? ` ${context.dataset.label}: ${context.raw} transactions` : ` ${context.dataset.label}: ${money(context.raw)}` } } }, scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: "#91a099", font: { size: 10 } } }, y: { beginAtZero: true, grid: { color: "#edf1ef" }, border: { display: false }, ticks: { color: "#a0aaa5", font: { size: 9 }, maxTicksLimit: 5, callback: value => mixedCurrencies ? value : money(value) } } } }
         });
+        document.querySelector(".charts-grid .panel:first-child .panel-subtitle").textContent = mixedCurrencies ? "Monthly transaction counts · multiple currencies" : "Incoming and outgoing activity by month";
+        document.querySelector(".charts-grid .panel:nth-child(2) .panel-subtitle").textContent = mixedCurrencies ? "Expense count by category · multiple currencies" : "Where your outflow is going";
     }
 
     function updateCategoryFilter() {
@@ -367,7 +395,7 @@
             const dot = document.createElement("span"); dot.className = "badge-dot";
             const categoryName = document.createElement("span"); categoryName.textContent = normalizedCategory(t.category);
             badge.append(dot, categoryName); categoryCell.append(badge);
-            const amount = document.createElement("td"); amount.className = `amount-cell ${Number(t.amount) > 0 ? "income" : "expense"}`; amount.textContent = amountText(t.amount);
+            const amount = document.createElement("td"); amount.className = `amount-cell ${Number(t.amount) > 0 ? "income" : "expense"}`; amount.textContent = transactionAmountText(t);
             row.append(date, description, categoryCell, amount); tbody.append(row);
         });
         document.getElementById("emptyState").hidden = rows.length > 0;
@@ -430,6 +458,107 @@
         }
     }
 
+    async function loadBankConnections() {
+        const status = document.getElementById("bankStatus");
+        try {
+            const response = await fetch("/bank/connections", { headers: { Authorization: `Bearer ${token}` } });
+            if (response.status === 401) { logout(); return; }
+            if (!response.ok) throw new Error("Could not load bank connections.");
+            const data = await response.json();
+            const button = document.getElementById("connectBankButton");
+            button.disabled = !data.configured;
+            button.style.opacity = data.configured ? "1" : ".55";
+            button.title = data.configured ? "Continue to Salt Edge to link your bank" : "Salt Edge server credentials are required";
+            if (!data.configured) {
+                status.textContent = "Bank linking setup is pending: the server needs SALTEDGE_APP_ID and SALTEDGE_SECRET.";
+                status.className = "upload-status";
+            } else {
+                status.textContent = "You approve data access with your bank. ExpenseIQ never asks for your bank password.";
+                status.className = "upload-status";
+            }
+            const list = document.getElementById("bankConnectionList");
+            list.replaceChildren();
+            for (const connection of data.connections || []) {
+                const item = document.createElement("div");
+                item.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid #e6ece9;border-radius:9px;background:#fbfdfc;color:#42544c;font-size:11px";
+                const name = document.createElement("span"); name.textContent = connection.provider_name || "Connected bank";
+                const state = document.createElement("span"); state.style.cssText = "color:#178263;font-size:10px"; state.textContent = connection.status || "Connected";
+                item.append(name, state); list.append(item);
+            }
+            document.getElementById("syncBanksButton").style.display = data.connections?.length ? "inline-flex" : "none";
+        } catch (error) {
+            status.textContent = error.message || "Could not load bank connections.";
+            status.className = "upload-status error";
+        }
+    }
+
+    async function connectBank() {
+        const status = document.getElementById("bankStatus");
+        status.textContent = "Preparing secure bank authorization…";
+        status.className = "upload-status";
+        const authWindow = window.open("about:blank", "_blank");
+        if (!authWindow) {
+            status.textContent = "Allow pop-ups for this app to continue to Salt Edge securely.";
+            status.className = "upload-status error";
+            return;
+        }
+        try {
+            const response = await fetch("/bank/connect", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || "Could not start bank connection.");
+            if (!data.redirect_url || new URL(data.redirect_url).hostname !== "www.saltedge.com") throw new Error("The provider returned an invalid authorization link.");
+            authWindow.opener = null;
+            authWindow.location.href = data.redirect_url;
+        } catch (error) {
+            authWindow.close();
+            status.textContent = error.message || "Could not start bank connection.";
+            status.className = "upload-status error";
+        }
+    }
+
+    async function syncBanks() {
+        const status = document.getElementById("bankStatus");
+        status.textContent = "Syncing connected bank transactions…";
+        status.className = "upload-status";
+        try {
+            const response = await fetch("/bank/sync", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || "Could not sync bank data.");
+            status.textContent = data.message; status.className = "upload-status success";
+            await Promise.all([loadTransactions(), loadBankConnections()]);
+        } catch (error) {
+            status.textContent = error.message || "Could not sync bank data.";
+            status.className = "upload-status error";
+        }
+    }
+
+    async function handleBankReturn() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("bank_link_return") !== "1") return;
+        const connectionId = params.get("connection_id");
+        const shared = params.get("shared");
+        window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+        const status = document.getElementById("bankStatus");
+        if (!connectionId || shared === "false") {
+            status.textContent = "Bank authorization was cancelled or not completed.";
+            status.className = "upload-status error";
+            return;
+        }
+        status.textContent = "Bank approved. Importing your recent transactions…";
+        status.className = "upload-status";
+        try {
+            const response = await fetch(`/bank/complete?${new URLSearchParams({ connection_id: connectionId })}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || "The connection was created, but data is not ready yet.");
+            status.textContent = data.message; status.className = "upload-status success";
+            await Promise.all([loadTransactions(), loadBankConnections()]);
+        } catch (error) {
+            status.textContent = error.message || "Could not finish bank setup.";
+            status.className = "upload-status error";
+            await loadBankConnections();
+        }
+    }
+
     function logout() { localStorage.removeItem("token"); window.location.href = "/"; }
 
     const fileInput = document.getElementById("fileInput");
@@ -447,8 +576,10 @@
     document.getElementById("periodFilter").addEventListener("change", () => { currentPage = 0; renderDashboard(); });
     document.getElementById("prevPage").addEventListener("click", () => { currentPage--; renderTransactions(); });
     document.getElementById("nextPage").addEventListener("click", () => { currentPage++; renderTransactions(); });
+    document.getElementById("connectBankButton").addEventListener("click", connectBank);
+    document.getElementById("syncBanksButton").addEventListener("click", syncBanks);
     document.getElementById("todayLabel").textContent = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" }).format(new Date());
-    loadProfile(); loadTransactions();
+    loadProfile(); loadTransactions(); loadBankConnections(); handleBankReturn();
 </script>
 </body>
 </html>
