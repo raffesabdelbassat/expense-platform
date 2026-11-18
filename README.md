@@ -6,6 +6,21 @@
 
 ExpenseIQ gives each user a private workspace for their financial activity. Create an account, import a bank statement as CSV, and review your transactions and spending patterns from the dashboard. The app can also connect to banks through Salt Edge when partner credentials are configured.
 
+### A quick example
+
+Suppose you import this statement:
+
+```csv
+date,description,amount,currency
+2026-01-15,Lidl,-42.50,PLN
+2026-01-16,Uber,-18.00,PLN
+2026-01-31,Salary,5200.00,PLN
+```
+
+ExpenseIQ predicts a category for each description (for example, **Food** for Lidl and **Transport** for Uber), then shows the transactions in your dashboard. For this sample, the overview reports **60.50 PLN** in outflow, **5,200 PLN** in inflow, and **3 transactions**. Charts break spending down over time and by category; use the date selector, search, and category filter to explore the records.
+
+The categories are model predictions, so treat them as helpful estimates and check them against your statement.
+
 ### Features
 
 - Email and password accounts with hashed passwords and bearer-token authentication
