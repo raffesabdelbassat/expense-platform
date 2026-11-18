@@ -2,241 +2,453 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>ExpenseIQ — Dashboard</title>
-   <script src="/static/chart.umd.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f7f6">
+    <title>ExpenseIQ — Overview</title>
+    <script src="/static/chart.umd.min.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            min-height: 100vh;
+        :root {
+            color-scheme: light;
+            --ink: #172b27;
+            --muted: #7b8985;
+            --line: #e6ece9;
+            --surface: #fff;
+            --canvas: #f5f7f6;
+            --green: #178263;
+            --green-dark: #126b51;
+            --green-soft: #e8f5ef;
+            --shadow: 0 8px 28px rgba(20, 54, 44, .055);
         }
-        nav {
-            background: rgba(255,255,255,0.05);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding: 16px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; background: var(--canvas); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+        button, input, select { font: inherit; }
+        button, a, select { -webkit-tap-highlight-color: transparent; }
+        .app-shell { min-height: 100vh; }
+        .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 5; display: flex; width: 244px; flex-direction: column; padding: 28px 18px 20px; background: #163e34; color: #eaf4ef; }
+        .brand { display: flex; align-items: center; gap: 11px; padding: 0 11px; color: #fff; font-size: 18px; font-weight: 750; letter-spacing: -.5px; text-decoration: none; }
+        .brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px; background: #c5ed8e; color: #173e33; }
+        .brand-mark svg { width: 19px; height: 19px; }
+        .nav-label { margin: 42px 12px 12px; color: #96b8ac; font-size: 10px; font-weight: 750; letter-spacing: 1.2px; text-transform: uppercase; }
+        .nav-list { display: grid; gap: 5px; }
+        .nav-link { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #c2d5ce; font-size: 13px; font-weight: 560; text-decoration: none; transition: background .18s ease, color .18s ease, transform .18s ease; }
+        .nav-link:hover { transform: translateX(2px); background: rgba(255,255,255,.08); color: white; }
+        .nav-link.active { background: rgba(255,255,255,.13); color: white; }
+        .nav-link svg { width: 17px; height: 17px; opacity: .9; }
+        .sidebar-spacer { flex: 1; }
+        .sidebar-note { margin: 0 5px 15px; padding: 15px; border: 1px solid rgba(255,255,255,.12); border-radius: 13px; background: rgba(255,255,255,.055); }
+        .sidebar-note strong { display: block; margin-bottom: 5px; color: #fff; font-size: 12px; }
+        .sidebar-note span { color: #afc9c0; font-size: 11px; line-height: 1.55; }
+        .sidebar-footer { display: flex; align-items: center; gap: 10px; padding: 14px 9px 0; border-top: 1px solid rgba(255,255,255,.12); }
+        .avatar { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border-radius: 50%; background: #bce5d1; color: #164536; font-size: 12px; font-weight: 750; }
+        .profile-copy { min-width: 0; flex: 1; }
+        .profile-name { overflow: hidden; color: #fff; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+        .profile-caption { margin-top: 3px; color: #9fbbb1; font-size: 10px; }
+        .logout-icon { display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #c2d5ce; cursor: pointer; }
+        .logout-icon:hover { background: rgba(255,255,255,.1); color: white; }
+        .logout-icon svg { width: 16px; height: 16px; }
+        .main { min-height: 100vh; margin-left: 244px; padding: 0 38px 44px; }
+        .topbar { display: flex; min-height: 78px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+        .crumb { color: var(--muted); font-size: 12px; }
+        .crumb b { color: #344740; font-weight: 650; }
+        .top-actions { display: flex; align-items: center; gap: 12px; }
+        .today { color: #667670; font-size: 12px; }
+        .top-avatar { display: none; }
+        .content { width: min(100%, 1260px); margin: 0 auto; }
+        .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 34px 0 25px; }
+        .eyebrow { margin: 0 0 9px; color: var(--green); font-size: 10px; font-weight: 750; letter-spacing: 1.45px; text-transform: uppercase; }
+        h1 { margin: 0; color: #1a3029; font-size: clamp(27px, 3vw, 34px); font-weight: 730; letter-spacing: -1.15px; line-height: 1.1; }
+        .heading-copy { margin: 9px 0 0; color: var(--muted); font-size: 13px; }
+        .period-select { min-width: 136px; padding: 10px 34px 10px 12px; border: 1px solid #e1e8e4; border-radius: 9px; appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237b8985' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 11px center; color: #45564f; font-size: 12px; cursor: pointer; outline: none; }
+        .period-select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid rgba(23,130,99,.25); outline-offset: 2px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 15px; }
+        .stat-card, .panel { border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: var(--shadow); }
+        .stat-card { position: relative; min-height: 142px; overflow: hidden; padding: 19px 20px; animation: rise .42s both; }
+        .stat-card:nth-child(2) { animation-delay: .04s; }
+        .stat-card:nth-child(3) { animation-delay: .08s; }
+        .stat-card:nth-child(4) { animation-delay: .12s; }
+        .stat-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .stat-label { color: #788781; font-size: 11px; font-weight: 620; }
+        .stat-icon { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 9px; background: var(--green-soft); color: var(--green); }
+        .stat-icon svg { width: 16px; height: 16px; }
+        .stat-value { overflow: hidden; margin-top: 17px; color: #1c332b; font-size: clamp(21px, 2.2vw, 27px); font-weight: 730; letter-spacing: -.8px; text-overflow: ellipsis; white-space: nowrap; }
+        .stat-foot { margin-top: 7px; color: #93a09b; font-size: 10px; }
+        .stat-card.featured { border-color: #cce8d8; background: linear-gradient(135deg,#f2faf5,#fff 78%); }
+        .stat-card.featured .stat-icon { background: #d9f1e3; }
+        .charts-grid { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(290px,.85fr); gap: 15px; margin-top: 17px; }
+        .panel { min-width: 0; padding: 20px; }
+        .panel-head { display: flex; min-height: 35px; align-items: start; justify-content: space-between; gap: 14px; }
+        .panel-title { margin: 0; color: #263a33; font-size: 13px; font-weight: 710; letter-spacing: -.15px; }
+        .panel-subtitle { margin: 5px 0 0; color: #95a19c; font-size: 10px; }
+        .chart-wrap { position: relative; height: 222px; margin-top: 12px; }
+        .chart-wrap.donut { height: 190px; margin-top: 8px; }
+        .chart-center { position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; pointer-events: none; }
+        .chart-center span { color: #95a19c; font-size: 10px; }
+        .chart-center strong { margin-top: 5px; color: #1e352d; font-size: 19px; letter-spacing: -.5px; }
+        .category-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin-top: 8px; }
+        .legend-item { display: flex; min-width: 0; align-items: center; gap: 7px; color: #6d7b75; font-size: 10px; }
+        .legend-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; }
+        .legend-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .legend-value { margin-left: auto; color: #394a43; font-weight: 650; white-space: nowrap; }
+        .transactions-panel { margin-top: 17px; padding: 0; overflow: hidden; }
+        .transactions-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 19px 20px 15px; }
+        .transaction-tools { display: flex; align-items: center; gap: 8px; }
+        .search-wrap { position: relative; }
+        .search-wrap svg { position: absolute; top: 50%; left: 10px; width: 14px; height: 14px; transform: translateY(-50%); color: #91a09a; pointer-events: none; }
+        .search-input { width: 175px; height: 34px; padding: 0 10px 0 31px; border: 1px solid #e7ece9; border-radius: 8px; background: #fff; color: #34473f; font-size: 11px; }
+        .category-select { height: 34px; max-width: 136px; padding: 0 9px; border: 1px solid #e7ece9; border-radius: 8px; background: #fff; color: #5d6d66; font-size: 11px; }
+        .table-scroll { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        thead { background: #f8faf9; }
+        th { padding: 11px 20px; border-top: 1px solid #eff2f0; border-bottom: 1px solid #eff2f0; color: #94a09b; font-size: 9px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; white-space: nowrap; }
+        td { padding: 12px 20px; border-bottom: 1px solid #f0f3f1; color: #57675f; font-size: 11px; }
+        tbody tr { transition: background .15s ease; }
+        tbody tr:hover { background: #fbfdfc; }
+        tbody tr:last-child td { border-bottom: 0; }
+        .date-cell { color: #86938e; white-space: nowrap; }
+        .description-cell { max-width: 380px; color: #354940; font-weight: 600; }
+        .amount-cell { color: #354940; font-weight: 650; text-align: right; white-space: nowrap; }
+        .amount-cell.income { color: var(--green); }
+        .amount-cell.expense { color: #354940; }
+        .category-cell { white-space: nowrap; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 100px; background: #f0f4f1; color: #5f7067; font-size: 9px; font-weight: 650; }
+        .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--badge-color, #8b9a91); }
+        .empty-state { padding: 38px 16px; color: #8c9993; font-size: 12px; text-align: center; }
+        .table-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 20px; border-top: 1px solid #eff2f0; color: #98a49f; font-size: 10px; }
+        .pagination { display: flex; gap: 6px; }
+        .page-btn { display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid #e6ece9; border-radius: 7px; background: white; color: #65756d; cursor: pointer; }
+        .page-btn:hover:not(:disabled) { border-color: #b9daca; color: var(--green); }
+        .page-btn:disabled { opacity: .45; cursor: default; }
+        .upload-overlay { position: fixed; inset: 0; z-index: 10; display: none; place-items: center; background: rgba(20,49,40,.18); backdrop-filter: blur(2px); }
+        .upload-overlay.visible { display: grid; }
+        .upload-box { width: min(360px, calc(100% - 32px)); padding: 19px; border: 1px solid var(--line); border-radius: 13px; background: white; box-shadow: 0 18px 50px rgba(20,54,44,.15); color: #42544c; font-size: 12px; text-align: center; }
+        .upload-box progress { width: 100%; height: 5px; margin-top: 14px; accent-color: var(--green); }
+        .drop-zone { display: flex; min-height: 145px; flex-direction: column; align-items: center; justify-content: center; margin-top: 17px; padding: 18px; border: 1px dashed #cbd9d2; border-radius: 12px; background: #fbfdfc; text-align: center; transition: border .18s ease, background .18s ease; }
+        .drop-zone.dragging { border-color: var(--green); background: #f0faf4; }
+        .drop-icon { display: grid; width: 36px; height: 36px; place-items: center; margin-bottom: 10px; border-radius: 11px; background: #e5f4eb; color: var(--green); }
+        .drop-icon svg { width: 18px; height: 18px; }
+        .drop-title { color: #42534b; font-size: 11px; font-weight: 620; }
+        .drop-help { margin-top: 5px; color: #9aa69f; font-size: 9px; }
+        .button-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 0 13px; border: 0; border-radius: 8px; background: var(--green); color: white; font-size: 11px; font-weight: 650; cursor: pointer; transition: background .18s ease, transform .18s ease; }
+        .button-primary:hover { transform: translateY(-1px); background: var(--green-dark); }
+        .upload-action { margin-top: 12px; }
+        .upload-status { min-height: 16px; margin: 10px 0 0; color: #788780; font-size: 10px; line-height: 1.45; }
+        .upload-status.error { color: #b74e4e; }
+        .upload-status.success { color: var(--green); }
+        .mobile-brand { display: none; }
+        @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 1100px) {
+            .sidebar { width: 210px; }
+            .main { margin-left: 210px; padding-right: 25px; padding-left: 25px; }
+            .stats-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .charts-grid { grid-template-columns: minmax(0,1.2fr) minmax(270px,.9fr); }
         }
-        nav h1 { font-size: 20px; color: #6366f1; }
-        nav button {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #fff;
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
+        @media (max-width: 780px) {
+            .sidebar { position: sticky; inset: 0 0 auto; width: 100%; height: 62px; flex-direction: row; align-items: center; justify-content: space-between; padding: 0 16px; }
+            .brand { padding: 0; font-size: 16px; }
+            .brand-mark { width: 31px; height: 31px; }
+            .sidebar .nav-label, .sidebar .nav-list, .sidebar .sidebar-spacer, .sidebar .sidebar-note, .sidebar-footer .profile-copy { display: none; }
+            .sidebar-footer { padding: 0; border: 0; }
+            .sidebar-footer .avatar { display: none; }
+            .logout-icon { width: 36px; height: 36px; background: rgba(255,255,255,.1); }
+            .main { margin: 0; padding: 0 18px 35px; }
+            .topbar { min-height: 48px; }
+            .crumb { font-size: 10px; }
+            .top-actions { gap: 8px; }
+            .today { font-size: 10px; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .chart-wrap.donut { height: 190px; }
         }
-        .container { max-width: 1100px; margin: 0 auto; padding: 32px 16px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
-        .card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            padding: 24px;
+        @media (max-width: 520px) {
+            .main { padding-right: 13px; padding-left: 13px; }
+            .page-heading { align-items: start; padding: 26px 0 20px; }
+            .heading-copy { max-width: 230px; font-size: 11px; line-height: 1.5; }
+            .period-select { min-width: 116px; padding-right: 27px; font-size: 10px; }
+            .stats-grid { gap: 9px; }
+            .stat-card { min-height: 126px; padding: 15px; border-radius: 12px; }
+            .stat-label { font-size: 10px; }
+            .stat-value { margin-top: 13px; font-size: 21px; }
+            .stat-foot { font-size: 9px; }
+            .stat-icon { width: 27px; height: 27px; }
+            .panel { padding: 15px; border-radius: 12px; }
+            .transactions-head { align-items: flex-start; flex-direction: column; padding: 16px 15px 13px; }
+            .transaction-tools { width: 100%; }
+            .search-wrap { flex: 1; }
+            .search-input { width: 100%; }
+            .category-select { max-width: 115px; }
+            th { padding: 10px 12px; }
+            td { padding: 11px 12px; }
+            .description-cell { max-width: 180px; }
+            .table-footer { padding: 12px 14px; }
         }
-        .card h2 { font-size: 16px; color: rgba(255,255,255,0.6); margin-bottom: 16px; }
-        .upload-area {
-            border: 2px dashed rgba(255,255,255,0.2);
-            border-radius: 8px;
-            padding: 24px;
-            text-align: center;
-            cursor: pointer;
-            margin-bottom: 12px;
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
         }
-        .upload-area:hover { border-color: #6366f1; }
-        input[type="file"] { display: none; }
-        .upload-btn {
-            background: #6366f1;
-            border: none;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            width: 100%;
-        }
-        .upload-btn:hover { background: #4f46e5; }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th { text-align: left; padding: 10px 12px; color: rgba(255,255,255,0.4); border-bottom: 1px solid rgba(255,255,255,0.1); }
-        td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .Food { background: #065f46; color: #6ee7b7; }
-        .Transport { background: #1e3a5f; color: #93c5fd; }
-        .Entertainment { background: #4c1d95; color: #c4b5fd; }
-        .Shopping { background: #7c2d12; color: #fdba74; }
-        .Bills { background: #374151; color: #d1d5db; }
-        .Health { background: #831843; color: #fbcfe8; }
-        .Education { background: #1e3a5f; color: #a5f3fc; }
-        .Travel { background: #065f46; color: #a7f3d0; }
-        #uploadStatus { margin-top: 8px; font-size: 13px; color: #6ee7b7; }
     </style>
 </head>
 <body>
-
-<nav>
-    <h1>💸 ExpenseIQ</h1>
-    <button onclick="logout()">Logout</button>
-</nav>
-
-<div class="container">
-    <div class="grid">
-        <div class="card">
-            <h2>SPENDING BY CATEGORY</h2>
-            <canvas id="categoryChart"></canvas>
+<div class="app-shell">
+    <aside class="sidebar">
+        <a class="brand" href="#overview" aria-label="ExpenseIQ home">
+            <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z"/><path d="m8 12 2.5 2.5L16.5 9"/></svg></span>
+            <span>ExpenseIQ</span>
+        </a>
+        <div class="nav-label">Workspace</div>
+        <nav class="nav-list" aria-label="Main navigation">
+            <a class="nav-link active" href="#overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/></svg>Overview</a>
+            <a class="nav-link" href="#transactions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>Transactions</a>
+            <a class="nav-link" href="#import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v4h16v-4"/></svg>Import data</a>
+        </nav>
+        <div class="sidebar-spacer"></div>
+        <div class="sidebar-note"><strong>Your money, in focus</strong><span>Import a bank CSV to see your spending patterns at a glance.</span></div>
+        <div class="sidebar-footer">
+            <div class="avatar" id="userAvatar">U</div>
+            <div class="profile-copy"><div class="profile-name" id="userEmail">Your account</div><div class="profile-caption">Personal workspace</div></div>
+            <button class="logout-icon" onclick="logout()" aria-label="Log out" title="Log out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg></button>
         </div>
-        <div class="card">
-            <h2>UPLOAD TRANSACTIONS</h2>
-            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-                <p>📂 Click to select your bank CSV file</p>
-                <p style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:8px">CSV columns: description and amount (comma or semicolon separated)</p>
-            </div>
-            <input type="file" id="fileInput" accept=".csv">
-            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose CSV File</button>
-            <p id="uploadStatus"></p>
-        </div>
-    </div>
+    </aside>
 
-    <div class="card">
-        <h2>TRANSACTIONS</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th>Amount</th>
-                    <th>Category</th>
-                </tr>
-            </thead>
-            <tbody id="transactionList"></tbody>
-        </table>
-    </div>
+    <main class="main" id="overview">
+        <header class="topbar"><div class="crumb">Workspace <span aria-hidden="true">/</span> <b>Overview</b></div><div class="top-actions"><span class="today" id="todayLabel"></span></div></header>
+        <div class="content">
+            <section class="page-heading"><div><p class="eyebrow">Your finances at a glance</p><h1>Overview</h1><p class="heading-copy">A clear view of where your money is going.</p></div>
+                <label class="sr-only" for="periodFilter" style="position:absolute;left:-9999px">Date range</label>
+                <select class="period-select" id="periodFilter" aria-label="Filter dashboard by date range"><option value="all">All time</option><option value="90">Last 90 days</option><option value="30">Last 30 days</option><option value="year">This year</option></select>
+            </section>
+
+            <section class="stats-grid" aria-label="Financial summary">
+                <article class="stat-card featured"><div class="stat-top"><span class="stat-label">Total outflow</span><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M17 8.5c0-1.7-2.2-3-5-3S7 6.8 7 8.5s2.2 3 5 3 5 1.3 5 3-2.2 3-5 3-5-1.3-5-3"/></svg></span></div><div class="stat-value" id="totalOutflow">—</div><div class="stat-foot">Based on imported debits</div></article>
+                <article class="stat-card"><div class="stat-top"><span class="stat-label">Money in</span><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m0 0L6 11m6-6 6 6"/><path d="M4 21h16"/></svg></span></div><div class="stat-value" id="totalInflow">—</div><div class="stat-foot">Incoming transactions</div></article>
+                <article class="stat-card"><div class="stat-top"><span class="stat-label">Transactions</span><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h3"/></svg></span></div><div class="stat-value" id="transactionCount">—</div><div class="stat-foot" id="transactionCountFoot">In this period</div></article>
+                <article class="stat-card"><div class="stat-top"><span class="stat-label">Average outflow</span><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 6-7"/></svg></span></div><div class="stat-value" id="averageOutflow">—</div><div class="stat-foot">Per outgoing transaction</div></article>
+            </section>
+
+            <section class="charts-grid" aria-label="Spending charts">
+                <article class="panel"><div class="panel-head"><div><h2 class="panel-title">Cash flow</h2><p class="panel-subtitle">Incoming and outgoing activity by month</p></div></div><div class="chart-wrap"><canvas id="flowChart" aria-label="Monthly cash flow chart"></canvas></div></article>
+                <article class="panel"><div class="panel-head"><div><h2 class="panel-title">Spending by category</h2><p class="panel-subtitle">Where your outflow is going</p></div></div><div class="chart-wrap donut"><canvas id="categoryChart" aria-label="Spending by category chart"></canvas><div class="chart-center"><span>Total outflow</span><strong id="chartTotal">—</strong></div></div><div class="category-legend" id="categoryLegend"></div></article>
+            </section>
+
+            <section class="panel transactions-panel" id="transactions">
+                <div class="transactions-head"><div><h2 class="panel-title">Recent transactions</h2><p class="panel-subtitle">Review and search your imported activity</p></div><div class="transaction-tools"><label class="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg><input class="search-input" id="searchInput" type="search" placeholder="Search transactions" aria-label="Search transactions"></label><select class="category-select" id="categoryFilter" aria-label="Filter by category"><option value="all">All categories</option></select></div></div>
+                <div class="table-scroll"><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th style="text-align:right">Amount</th></tr></thead><tbody id="transactionList"></tbody></table><div class="empty-state" id="emptyState" hidden>No transactions found. Import a CSV to get started.</div></div>
+                <div class="table-footer"><span id="resultsLabel">Loading transactions…</span><div class="pagination"><button class="page-btn" id="prevPage" aria-label="Previous page" disabled>‹</button><button class="page-btn" id="nextPage" aria-label="Next page" disabled>›</button></div></div>
+            </section>
+
+            <section class="panel" id="import" style="margin-top:17px"><div class="panel-head"><div><h2 class="panel-title">Import transactions</h2><p class="panel-subtitle">Upload a bank statement CSV. Your file stays in this app.</p></div></div><div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-label="Choose a CSV file or drop one here"><span class="drop-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v4h16v-4"/></svg></span><span class="drop-title" id="fileLabel">Drop a CSV file here or browse</span><span class="drop-help">CSV format · up to 5 MB · comma or semicolon separated</span><input type="file" id="fileInput" accept=".csv,text/csv" hidden></div><button class="button-primary upload-action" id="uploadButton" type="button">Upload transactions</button><p class="upload-status" id="uploadStatus" role="status" aria-live="polite"></p></section>
+        </div>
+    </main>
 </div>
+<div class="upload-overlay" id="uploadOverlay" role="status" aria-live="polite"><div class="upload-box"><span id="overlayText">Importing your transactions…</span><progress></progress></div></div>
 
 <script>
     const token = localStorage.getItem("token");
     if (!token) window.location.href = "/";
 
-    let chart = null;
+    const palette = ["#178263", "#e6a33d", "#6f8fe8", "#cb7192", "#49a6a0", "#a27ad2", "#d3744f", "#7b9b5c", "#648099", "#d1b755"];
+    const pageSize = 10;
+    let allTransactions = [];
+    let visibleTransactions = [];
+    let currentPage = 0;
+    let flowChart = null;
+    let categoryChart = null;
+
+    const money = value => new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0);
+    const amountText = value => `${Number(value) < 0 ? "−" : Number(value) > 0 ? "+" : ""}${money(Math.abs(Number(value) || 0))}`;
+    const normalizedCategory = value => String(value || "Uncategorized");
+    const dateValue = value => {
+        const text = String(value || "").trim();
+        let match = text.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/);
+        if (match) return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+        match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+        const parsed = new Date(text);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+    const formatDate = value => {
+        const date = dateValue(value);
+        return date ? new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", year: "numeric" }).format(date) : String(value || "Unknown date");
+    };
+
+    function rangeTransactions() {
+        const range = document.getElementById("periodFilter").value;
+        if (range === "all") return allTransactions;
+        const now = new Date();
+        let start;
+        if (range === "year") start = new Date(now.getFullYear(), 0, 1);
+        else start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - Number(range));
+        return allTransactions.filter(t => { const date = dateValue(t.date); return date && date >= start && date <= now; });
+    }
+
+    function renderSummary(transactions) {
+        const outflows = transactions.filter(t => Number(t.amount) < 0).reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+        const inflows = transactions.filter(t => Number(t.amount) > 0).reduce((sum, t) => sum + Number(t.amount), 0);
+        const outgoingCount = transactions.filter(t => Number(t.amount) < 0).length;
+        document.getElementById("totalOutflow").textContent = money(outflows);
+        document.getElementById("totalInflow").textContent = money(inflows);
+        document.getElementById("transactionCount").textContent = new Intl.NumberFormat().format(transactions.length);
+        document.getElementById("transactionCountFoot").textContent = transactions.length === 1 ? "Transaction in this period" : "Transactions in this period";
+        document.getElementById("averageOutflow").textContent = money(outgoingCount ? outflows / outgoingCount : 0);
+        document.getElementById("chartTotal").textContent = money(outflows);
+    }
+
+    function renderCharts(transactions) {
+        const expenses = transactions.filter(t => Number(t.amount) < 0);
+        const categoryTotals = {};
+        expenses.forEach(t => { const name = normalizedCategory(t.category); categoryTotals[name] = (categoryTotals[name] || 0) + Math.abs(Number(t.amount)); });
+        const categoryEntries = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
+        const labels = categoryEntries.map(([name]) => name);
+        const values = categoryEntries.map(([, value]) => value);
+        const colors = labels.map((_, index) => palette[index % palette.length]);
+
+        if (categoryChart) categoryChart.destroy();
+        categoryChart = new Chart(document.getElementById("categoryChart"), {
+            type: "doughnut",
+            data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: "#fff", hoverOffset: 5 }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: "77%", plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => ` ${context.label}: ${money(context.raw)}` } } } }
+        });
+        const legend = document.getElementById("categoryLegend");
+        legend.replaceChildren();
+        categoryEntries.slice(0, 6).forEach(([name, value], index) => {
+            const item = document.createElement("div"); item.className = "legend-item";
+            const dot = document.createElement("span"); dot.className = "legend-dot"; dot.style.backgroundColor = colors[index];
+            const label = document.createElement("span"); label.className = "legend-name"; label.textContent = name;
+            const amount = document.createElement("span"); amount.className = "legend-value"; amount.textContent = money(value);
+            item.append(dot, label, amount); legend.append(item);
+        });
+        if (!categoryEntries.length) legend.innerHTML = '<span class="panel-subtitle">Import expenses to see your category breakdown.</span>';
+
+        const months = [];
+        const today = new Date();
+        for (let offset = 5; offset >= 0; offset--) months.push(new Date(today.getFullYear(), today.getMonth() - offset, 1));
+        const monthKeys = months.map(d => `${d.getFullYear()}-${d.getMonth()}`);
+        const monthLabels = months.map(d => new Intl.DateTimeFormat(undefined, { month: "short" }).format(d));
+        const income = Array(6).fill(0), expense = Array(6).fill(0);
+        transactions.forEach(t => {
+            const d = dateValue(t.date); if (!d) return;
+            const index = monthKeys.indexOf(`${d.getFullYear()}-${d.getMonth()}`); if (index < 0) return;
+            const amount = Number(t.amount); if (amount < 0) expense[index] += Math.abs(amount); else if (amount > 0) income[index] += amount;
+        });
+        if (flowChart) flowChart.destroy();
+        flowChart = new Chart(document.getElementById("flowChart"), {
+            type: "bar",
+            data: { labels: monthLabels, datasets: [{ label: "Money in", data: income, backgroundColor: "#9ed7b5", borderRadius: 5, maxBarThickness: 17 }, { label: "Money out", data: expense, backgroundColor: "#178263", borderRadius: 5, maxBarThickness: 17 }] },
+            options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false }, plugins: { legend: { position: "bottom", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 7, boxHeight: 7, color: "#77867f", padding: 18, font: { size: 10 } } }, tooltip: { callbacks: { label: context => ` ${context.dataset.label}: ${money(context.raw)}` } } }, scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: "#91a099", font: { size: 10 } } }, y: { beginAtZero: true, grid: { color: "#edf1ef" }, border: { display: false }, ticks: { color: "#a0aaa5", font: { size: 9 }, maxTicksLimit: 5, callback: value => money(value) } } } }
+        });
+    }
+
+    function updateCategoryFilter() {
+        const select = document.getElementById("categoryFilter");
+        const selected = select.value || "all";
+        const categories = [...new Set(allTransactions.map(t => normalizedCategory(t.category)))].sort((a, b) => a.localeCompare(b));
+        select.replaceChildren(new Option("All categories", "all"));
+        categories.forEach(category => select.add(new Option(category, category)));
+        select.value = categories.includes(selected) ? selected : "all";
+    }
+
+    function renderTransactions() {
+        const query = document.getElementById("searchInput").value.trim().toLocaleLowerCase();
+        const category = document.getElementById("categoryFilter").value;
+        visibleTransactions = rangeTransactions().filter(t => {
+            const matchesQuery = !query || `${t.description} ${t.category} ${t.date}`.toLocaleLowerCase().includes(query);
+            return matchesQuery && (category === "all" || normalizedCategory(t.category) === category);
+        });
+        const pages = Math.max(1, Math.ceil(visibleTransactions.length / pageSize));
+        currentPage = Math.min(currentPage, pages - 1);
+        const start = currentPage * pageSize;
+        const rows = visibleTransactions.slice(start, start + pageSize);
+        const tbody = document.getElementById("transactionList"); tbody.replaceChildren();
+        rows.forEach(t => {
+            const row = document.createElement("tr");
+            const date = document.createElement("td"); date.className = "date-cell"; date.textContent = formatDate(t.date);
+            const description = document.createElement("td"); description.className = "description-cell"; description.textContent = t.description || "Untitled transaction";
+            const categoryCell = document.createElement("td"); categoryCell.className = "category-cell";
+            const badge = document.createElement("span"); badge.className = "badge";
+            const colorIndex = [...new Set(allTransactions.map(item => normalizedCategory(item.category)))].sort().indexOf(normalizedCategory(t.category));
+            badge.style.setProperty("--badge-color", palette[(colorIndex < 0 ? 0 : colorIndex) % palette.length]);
+            const dot = document.createElement("span"); dot.className = "badge-dot";
+            const categoryName = document.createElement("span"); categoryName.textContent = normalizedCategory(t.category);
+            badge.append(dot, categoryName); categoryCell.append(badge);
+            const amount = document.createElement("td"); amount.className = `amount-cell ${Number(t.amount) > 0 ? "income" : "expense"}`; amount.textContent = amountText(t.amount);
+            row.append(date, description, categoryCell, amount); tbody.append(row);
+        });
+        document.getElementById("emptyState").hidden = rows.length > 0;
+        document.getElementById("resultsLabel").textContent = visibleTransactions.length ? `Showing ${start + 1}–${Math.min(start + pageSize, visibleTransactions.length)} of ${visibleTransactions.length} transactions` : "No transactions to show";
+        document.getElementById("prevPage").disabled = currentPage === 0;
+        document.getElementById("nextPage").disabled = currentPage >= pages - 1;
+    }
+
+    function renderDashboard() {
+        const transactions = rangeTransactions();
+        renderSummary(transactions); renderCharts(transactions); renderTransactions();
+    }
+
+    async function loadProfile() {
+        try {
+            const response = await fetch("/me", { headers: { Authorization: `Bearer ${token}` } });
+            if (response.status === 401) { logout(); return; }
+            if (!response.ok) return;
+            const user = await response.json(); const email = user.logged_in_as || "Your account";
+            document.getElementById("userEmail").textContent = email;
+            document.getElementById("userAvatar").textContent = email.charAt(0).toUpperCase();
+        } catch (error) { /* Keep the dashboard usable if profile lookup fails. */ }
+    }
 
     async function loadTransactions() {
-        const response = await fetch("/transactions", {
-            headers: { "Authorization": `Bearer ${token}` }
-        });
-
-        if (response.status === 401) {
-            window.location.href = "/";
-            return;
-        }
-
-        if (!response.ok) {
-            document.getElementById("uploadStatus").textContent = "Could not load transactions.";
-            return;
-        }
-        const transactions = await response.json();
-        const tbody = document.getElementById("transactionList");
-        tbody.innerHTML = "";
-
-        const categoryTotals = {};
-
-        transactions.forEach(t => {
-            const row = document.createElement("tr");
-            const dateCell = document.createElement("td");
-            dateCell.textContent = t.date;
-            const descriptionCell = document.createElement("td");
-            descriptionCell.textContent = t.description;
-            const amountCell = document.createElement("td");
-            amountCell.textContent = `$${Number(t.amount).toFixed(2)}`;
-            const categoryCell = document.createElement("td");
-            const badge = document.createElement("span");
-            badge.classList.add("badge");
-            const safeCategory = String(t.category || "Uncategorized");
-            if (/^[a-z]+$/i.test(safeCategory)) badge.classList.add(safeCategory);
-            badge.textContent = safeCategory;
-            categoryCell.appendChild(badge);
-            row.append(dateCell, descriptionCell, amountCell, categoryCell);
-            tbody.appendChild(row);
-            categoryTotals[t.category] = (categoryTotals[t.category] || 0) + parseFloat(t.amount);
-        });
-
-        updateChart(categoryTotals);
-    }
-
-    function updateChart(categoryTotals) {
-        const labels = Object.keys(categoryTotals);
-        const values = Object.values(categoryTotals);
-        const colors = ["#6ee7b7","#93c5fd","#c4b5fd","#fdba74","#d1d5db","#fbcfe8","#a5f3fc","#a7f3d0"];
-
-        if (chart) chart.destroy();
-
-        chart = new Chart(document.getElementById("categoryChart"), {
-            type: "doughnut",
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: values,
-                    backgroundColor: colors,
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                plugins: {
-                    legend: { labels: { color: "#e2e8f0" } }
-                }
-            }
-        });
-    }
-
-    async function uploadFile() {
-    const fileInput = document.getElementById("fileInput");
-    const file = fileInput.files[0];
-
-    if (!file) {
-        return;
-    }
-
         const status = document.getElementById("uploadStatus");
-        status.style.color = "#6ee7b7";
-        status.textContent = "Uploading...";
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-        const response = await fetch("/upload", {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${token}` },
-            body: formData
-        });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || "Upload failed");
-        document.getElementById("uploadStatus").textContent = data.message;
-        await loadTransactions();
-    } catch (err) {
-        status.style.color = "#f87171";
-        status.textContent = "Upload failed: " + err.message;
-    } finally {
-        fileInput.value = "";
-    }
-}
-
-    document.getElementById("fileInput").addEventListener("change", uploadFile);
-
-    function logout() {
-        localStorage.removeItem("token");
-        window.location.href = "/";
+        try {
+            const response = await fetch("/transactions", { headers: { Authorization: `Bearer ${token}` } });
+            if (response.status === 401) { logout(); return; }
+            if (!response.ok) throw new Error("Could not load transactions.");
+            allTransactions = await response.json();
+            updateCategoryFilter(); renderDashboard();
+            if (status.classList.contains("loading")) { status.textContent = ""; status.className = "upload-status"; }
+        } catch (error) {
+            status.textContent = error.message || "Could not load transactions."; status.className = "upload-status error";
+        }
     }
 
-    loadTransactions();
+    async function uploadFile(file) {
+        if (!file) return;
+        const status = document.getElementById("uploadStatus");
+        if (!file.name.toLowerCase().endsWith(".csv")) { status.textContent = "Choose a CSV file to upload."; status.className = "upload-status error"; return; }
+        status.textContent = "Uploading and categorizing your transactions…"; status.className = "upload-status loading";
+        document.getElementById("overlayText").textContent = `Importing ${file.name}…`;
+        document.getElementById("uploadOverlay").classList.add("visible");
+        const formData = new FormData(); formData.append("file", file);
+        try {
+            const response = await fetch("/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || "Upload failed.");
+            status.textContent = data.message || "Transactions imported."; status.className = "upload-status success";
+            await loadTransactions();
+            status.textContent = data.message || "Transactions imported."; status.className = "upload-status success";
+        } catch (error) {
+            status.textContent = `Upload failed: ${error.message}`; status.className = "upload-status error";
+        } finally {
+            document.getElementById("uploadOverlay").classList.remove("visible");
+            document.getElementById("fileInput").value = "";
+            document.getElementById("fileLabel").textContent = "Drop a CSV file here or browse";
+        }
+    }
+
+    function logout() { localStorage.removeItem("token"); window.location.href = "/"; }
+
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const chooseFile = () => fileInput.click();
+    dropZone.addEventListener("click", chooseFile);
+    dropZone.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseFile(); } });
+    fileInput.addEventListener("change", () => { const file = fileInput.files[0]; if (file) { document.getElementById("fileLabel").textContent = file.name; uploadFile(file); } });
+    document.getElementById("uploadButton").addEventListener("click", chooseFile);
+    ["dragenter", "dragover"].forEach(name => dropZone.addEventListener(name, event => { event.preventDefault(); dropZone.classList.add("dragging"); }));
+    ["dragleave", "drop"].forEach(name => dropZone.addEventListener(name, event => { event.preventDefault(); dropZone.classList.remove("dragging"); }));
+    dropZone.addEventListener("drop", event => { const file = event.dataTransfer.files[0]; if (file) { document.getElementById("fileLabel").textContent = file.name; uploadFile(file); } });
+    document.getElementById("searchInput").addEventListener("input", () => { currentPage = 0; renderTransactions(); });
+    document.getElementById("categoryFilter").addEventListener("change", () => { currentPage = 0; renderTransactions(); });
+    document.getElementById("periodFilter").addEventListener("change", () => { currentPage = 0; renderDashboard(); });
+    document.getElementById("prevPage").addEventListener("click", () => { currentPage--; renderTransactions(); });
+    document.getElementById("nextPage").addEventListener("click", () => { currentPage++; renderTransactions(); });
+    document.getElementById("todayLabel").textContent = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" }).format(new Date());
+    loadProfile(); loadTransactions();
 </script>
 </body>
 </html>
