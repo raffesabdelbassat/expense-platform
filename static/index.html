@@ -106,18 +106,38 @@
         }
 
         async function register() {
-            const email = document.getElementById("email").value;
+            const emailInput = document.getElementById("email");
+            const email = emailInput.value.trim();
             const password = document.getElementById("password").value;
+            const err = document.getElementById("error");
+
+            err.style.display = "none";
+            if (!email || !emailInput.validity.valid) {
+                err.textContent = "Enter a valid email address.";
+                err.style.display = "block";
+                emailInput.focus();
+                return;
+            }
+            if (password.length < 8) {
+                err.textContent = "Password must be at least 8 characters.";
+                err.style.display = "block";
+                document.getElementById("password").focus();
+                return;
+            }
 
             const response = await fetch(`/register?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`, {
                 method: "POST"
             });
 
             if (response.ok) {
-                alert("Account created! Please sign in.");
+                err.textContent = "Account created! Please sign in.";
+                err.style.color = "#6ee7b7";
+                err.style.display = "block";
             } else {
                 const data = await response.json();
-                alert(data.detail);
+                err.textContent = data.detail || "Could not create account.";
+                err.style.color = "#f87171";
+                err.style.display = "block";
             }
         }
     </script>

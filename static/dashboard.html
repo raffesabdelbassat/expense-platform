@@ -97,7 +97,7 @@
             <h2>UPLOAD TRANSACTIONS</h2>
             <div class="upload-area" onclick="document.getElementById('fileInput').click()">
                 <p>📂 Click to select your bank CSV file</p>
-                <p style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:8px">Columns needed: date, description, amount</p>
+                <p style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:8px">CSV columns: description and amount (comma or semicolon separated)</p>
             </div>
             <input type="file" id="fileInput" accept=".csv">
             <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose CSV File</button>
@@ -203,7 +203,9 @@
         return;
     }
 
-    document.getElementById("uploadStatus").textContent = "Uploading...";
+        const status = document.getElementById("uploadStatus");
+        status.style.color = "#6ee7b7";
+        status.textContent = "Uploading...";
 
     const formData = new FormData();
     formData.append("file", file);
@@ -220,7 +222,8 @@
         document.getElementById("uploadStatus").textContent = data.message;
         await loadTransactions();
     } catch (err) {
-        document.getElementById("uploadStatus").textContent = "Upload failed: " + err.message;
+        status.style.color = "#f87171";
+        status.textContent = "Upload failed: " + err.message;
     } finally {
         fileInput.value = "";
     }

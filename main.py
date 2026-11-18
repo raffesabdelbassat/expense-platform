@@ -92,29 +92,49 @@ async def upload_transactions(
     if not decoded.strip():
         raise HTTPException(status_code=400, detail="CSV file is empty")
 
-    reader = csv.DictReader(io.StringIO(decoded))
+    try:
+        dialect = csv.Sniffer().sniff(decoded[:4096], delimiters=",;\t|")
+    except csv.Error:
+        dialect = csv.excel
+    reader = csv.DictReader(io.StringIO(decoded), dialect=dialect)
     if not reader.fieldnames:
         raise HTTPException(status_code=400, detail="CSV must include a header row")
-    normalized_headers = [header.strip().lower() if header else "" for header in reader.fieldnames]
+    normalized_headers = [header.strip().lower().replace("_", " ") if header else "" for header in reader.fieldnames]
     reader.fieldnames = normalized_headers
-    if not any(name in normalized_headers for name in ("description", "merchant", "name", "details")):
-        raise HTTPException(status_code=400, detail="CSV needs a description, merchant, name, or details column")
-    if not any(name in normalized_headers for name in ("amount", "value", "sum")):
-        raise HTTPException(status_code=400, detail="CSV needs an amount, value, or sum column")
+    description_columns = ("description", "merchant", "merchant name", "name", "details", "transaction details", "transaction", "memo", "narrative", "narration", "payee", "particulars")
+    amount_columns = ("amount", "transaction amount", "value", "sum")
+    date_columns = ("date", "transaction date", "posting date", "booking date", "time")
+    if not any(name in normalized_headers for name in description_columns):
+        raise HTTPException(status_code=400, detail="CSV needs a description, merchant, transaction, memo, or payee column")
+    if not any(name in normalized_headers for name in amount_columns):
+        raise HTTPException(status_code=400, detail="CSV needs an amount, transaction amount, value, or sum column")
 
     transactions = []
     try:
         for row_number, row in enumerate(reader, start=2):
             if row_number > MAX_TRANSACTIONS_PER_UPLOAD + 1:
                 raise HTTPException(status_code=413, detail="CSV may contain at most 5,000 transactions")
-            row = {key.strip().lower(): (value.strip() if value else "") for key, value in row.items() if key}
-            description = row.get("description") or row.get("merchant") or row.get("name") or row.get("details")
-            amount_text = row.get("amount") or row.get("value") or row.get("sum")
-            date = row.get("date") or row.get("transaction date") or row.get("time") or "Unknown"
+            row = {key.strip().lower().replace("_", " "): (value.strip() if value else "") for key, value in row.items() if key}
+            description = next((row[name] for name in description_columns if row.get(name)), "")
+            amount_text = next((row[name] for name in amount_columns if row.get(name)), "")
+            date = next((row[name] for name in date_columns if row.get(name)), "Unknown")
             if not description or not amount_text:
                 raise HTTPException(status_code=400, detail=f"Row {row_number}: description and amount are required")
+            amount_clean = amount_text.replace("$", "").replace("€", "").replace("£", "").replace("\u00a0", "").replace(" ", "")
+            negative = amount_clean.startswith("(") and amount_clean.endswith(")")
+            amount_clean = amount_clean.strip("()")
+            if "," in amount_clean and "." in amount_clean:
+                decimal_separator = "," if amount_clean.rfind(",") > amount_clean.rfind(".") else "."
+                grouping_separator = "." if decimal_separator == "," else ","
+                amount_clean = amount_clean.replace(grouping_separator, "").replace(decimal_separator, ".")
+            elif "," in amount_clean and dialect.delimiter in (";", "\t", "|"):
+                amount_clean = amount_clean.replace(",", ".")
+            else:
+                amount_clean = amount_clean.replace(",", "")
             try:
-                amount = float(amount_text.replace("$", "").replace("€", "").replace("£", "").replace(",", ""))
+                amount = float(amount_clean)
+                if negative:
+                    amount = -amount
             except ValueError:
                 raise HTTPException(status_code=400, detail=f"Row {row_number}: amount must be numeric")
             if not math.isfinite(amount):
